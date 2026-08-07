@@ -3,4 +3,8 @@
 # rebuild. The --no-rebuild flag tells the script to skip its own rebuild —
 # limine-snapper's pacman install will produce a UKI that already includes
 # hibernation.
-omarchy-hibernation-setup --force --no-rebuild
+if [[ $(findmnt -n -o FSTYPE /) == "btrfs" ]]; then
+  omarchy-hibernation-setup --force --no-rebuild
+else
+  echo "Skipping hibernation setup (requires Btrfs root filesystem)"
+fi

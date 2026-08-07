@@ -1,6 +1,13 @@
 abort() {
   echo -e "\e[31mOmarchy install requires: $1\e[0m"
   echo
+
+  if [[ ${OMARCHY_UNGUARDED:-0} == "1" ]]; then
+    echo -e "\e[33mContinuing anyway because OMARCHY_UNGUARDED=1 is set.\e[0m"
+    echo
+    return 0
+  fi
+
   gum confirm "Proceed anyway on your own accord and without assistance?" || exit 1
 }
 

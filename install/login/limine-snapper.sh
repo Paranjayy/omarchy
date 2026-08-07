@@ -81,23 +81,25 @@ fi
 
 echo "mkinitcpio hooks re-enabled"
 
-# Installing limine-mkinitcpio-hook above already triggered a full UKI rebuild
-# (via 80-limine-efi-deploy.hook + 90-mkinitcpio-install.hook), which writes the
-# boot entries into /boot/limine.conf. Only fall back to limine-update if those
-# hooks didn't run for some reason — running it unconditionally rebuilds every
-# UKI a second time.
-if ! grep -q "^/+" /boot/limine.conf; then
-  sudo limine-update
-fi
+if command -v limine &>/dev/null; then
+  # Installing limine-mkinitcpio-hook above already triggered a full UKI rebuild
+  # (via 80-limine-efi-deploy.hook + 90-mkinitcpio-install.hook), which writes the
+  # boot entries into /boot/limine.conf. Only fall back to limine-update if those
+  # hooks didn't run for some reason — running it unconditionally rebuilds every
+  # UKI a second time.
+  if ! grep -q "^/+" /boot/limine.conf; then
+    sudo limine-update
+  fi
 
-if ! grep -q "^/+" /boot/limine.conf; then
-  echo "Error: failed to add boot entries to /boot/limine.conf" >&2
-  exit 1
-fi
+  if ! grep -q "^/+" /boot/limine.conf; then
+    echo "Error: failed to add boot entries to /boot/limine.conf" >&2
+    exit 1
+  fi
 
-if [[ -n $EFI ]] && efibootmgr &>/dev/null; then
-  # Remove the archinstall-created Limine entry
-  while IFS= read -r bootnum; do
-    sudo efibootmgr -b "$bootnum" -B >/dev/null 2>&1
-  done < <(efibootmgr | grep -E "^Boot[0-9]{4}\*? Arch Linux Limine" | sed 's/^Boot\([0-9]\{4\}\).*/\1/')
+  if [[ -n $EFI ]] && efibootmgr &>/dev/null; then
+    # Remove the archinstall-created Limine entry
+    while IFS= read -r bootnum; do
+      sudo efibootmgr -b "$bootnum" -B >/dev/null 2>&1
+    done < <(efibootmgr | grep -E "^Boot[0-9]{4}\*? Arch Linux Limine" | sed 's/^Boot\([0-9]\{4\}\).*/\1/')
+  fi
 fi
