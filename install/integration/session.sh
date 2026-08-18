@@ -2,9 +2,12 @@
 # This does not enable, replace, or re-theme the login manager.
 
 mkdir -p "$HOME/.config/uwsm"
-if [[ ! -e "$HOME/.config/uwsm/env-Hyprland" ]]; then
-  install -m644 "$OMARCHY_PATH/default/uwsm-env-Hyprland" \
-    "$HOME/.config/uwsm/env-Hyprland"
+uwsm_env="$HOME/.config/uwsm/env"
+if [[ ! -e "$uwsm_env" ]]; then
+  install -m644 "$OMARCHY_PATH/default/uwsm-env-Hyprland" "$uwsm_env"
+elif ! grep -q '^[[:space:]]*export HYPRLAND_CONFIG=' "$uwsm_env"; then
+  printf '\n# Omarchy integration: select the regular config, not an auto-discovered Lua config.\n' >>"$uwsm_env"
+  printf 'export HYPRLAND_CONFIG="$HOME/.config/hypr/hyprland.conf"\n' >>"$uwsm_env"
 fi
 
 session_launcher=/usr/local/bin/omarchy-hyprland-session
