@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# omarchy:summary=Install Omarchy as a non-destructive profile on this Arch system
+# omarchy:group=install
+# omarchy:args=[--integration]
+# omarchy:examples=omarchy install
+# omarchy:requires-sudo=true
+
+set -euo pipefail
+
+export OMARCHY_PATH="${OMARCHY_PATH:-$HOME/.local/share/omarchy}"
+
+case "${1:-}" in
+  -h|--help)
+    cat <<'USAGE'
+Usage: omarchy install
+
+Installs Omarchy in existing-Arch integration mode. It preserves the current
+greeter, desktop environments, filesystem, boot setup, NetworkManager, and
+pacman configuration. The full ISO installer remains explicit and is never
+selected by this command.
+USAGE
+    exit 0
+    ;;
+  "") ;;
+  --integration) shift ;;
+  *) echo "Unknown option: $1" >&2; exit 2 ;;
+esac
+
+if (($#)); then
+  echo "Unexpected arguments: $*" >&2
+  exit 2
+fi
+
+export OMARCHY_INTEGRATION=1
+exec bash "$OMARCHY_PATH/install.sh"

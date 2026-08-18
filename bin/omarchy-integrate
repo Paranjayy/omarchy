@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# omarchy:summary=Install Omarchy as a non-destructive existing-Arch profile
+# omarchy:group=integrate
+# omarchy:args=
+# omarchy:examples=omarchy integrate
+# omarchy:requires-sudo=true
+
+set -euo pipefail
+exec omarchy-install --integration "$@"
