@@ -21,6 +21,10 @@ trap 'omarchy-update-stay-awake stop' EXIT
 
 omarchy-update-requires-free-space
 
+# A development checkout follows the fork's tracked branch. Package-managed
+# installs simply skip this source step.
+omarchy-update-git
+
 # -y is a promise not to ask anything. Steps that would need an answer report
 # and move on instead of waiting on a prompt nobody is here to give.
 [[ ${1:-} != "-y" ]] || export OMARCHY_UPDATE_UNATTENDED=1

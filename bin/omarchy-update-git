@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# omarchy:summary=Pull the latest Omarchy source checkout
+
+set -euo pipefail
+
+if [[ ! -d ${OMARCHY_PATH:-}/.git ]]; then
+  echo "Omarchy source is package-managed; source checkout update skipped."
+  exit 0
+fi
+
+remote="${OMARCHY_UPDATE_REMOTE:-origin}"
+branch=$(git -C "$OMARCHY_PATH" branch --show-current)
+if [[ -z $branch ]]; then
+  echo "Omarchy source is detached; refusing to guess an update branch." >&2
+  exit 2
+fi
+
+echo "Updating Omarchy source from $remote/$branch"
+GIT_TERMINAL_PROMPT=0 git -C "$OMARCHY_PATH" fetch "$remote" "$branch"
+git -C "$OMARCHY_PATH" pull --ff-only --autostash "$remote" "$branch"
+git -C "$OMARCHY_PATH" --no-pager diff --check
