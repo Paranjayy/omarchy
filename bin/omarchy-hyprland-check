@@ -1,0 +1,29 @@
+#!/bin/bash
+# omarchy:group=hyprland
+# omarchy:name=check
+# omarchy:summary=Validate the isolated Omarchy Hyprland profile
+
+set -u
+
+config="$HOME/.config/hypr/hyprland.conf"
+session="$HOME/.local/share/wayland-sessions/omarchy-profile.desktop"
+launcher="$HOME/.local/bin/omarchy-hyprland-session"
+failed=0
+
+for path in "$config" "$session" "$launcher"; do
+  if [[ ! -e "$path" ]]; then
+    printf 'MISSING: %s\n' "$path" >&2
+    failed=1
+  fi
+done
+
+if (( failed )); then
+  exit 1
+fi
+
+if ! Hyprland -c "$config" --verify-config; then
+  printf 'FAILED: Hyprland rejected %s\n' "$config" >&2
+  exit 1
+fi
+
+printf 'OK: Omarchy config, launcher, and selectable session are ready.\n'

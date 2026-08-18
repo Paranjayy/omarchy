@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Omarchy (isolated profile)
+Comment=Omarchy Hyprland profile with an explicit configuration
+Exec=/usr/local/bin/omarchy-hyprland-session
+TryExec=/usr/local/bin/omarchy-hyprland-session
+DesktopNames=Hyprland;Omarchy
+Type=Application

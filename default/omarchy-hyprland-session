@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# Launch the Omarchy profile explicitly. This prevents Hyprland's automatic
+# Lua-config discovery from shadowing ~/.config/hypr/hyprland.conf.
+export HYPRLAND_CONFIG="$HOME/.config/hypr/hyprland.conf"
+exec uwsm start -g -1 -e -D Hyprland hyprland.desktop

@@ -1,0 +1,36 @@
+name: Integration checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  shell-and-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check shell syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t scripts < <(find bin install default -type f \( -name '*.sh' -o -name 'omarchy-*' \) -print)
+          for script in "${scripts[@]}"; do
+            bash -n "$script"
+          done
+
+      - name: Check command metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          PATH="$PWD/bin:$PATH" "$PWD/bin/omarchy" commands --check
+
+      - name: Check integration guardrails
+        shell: bash
+        run: |
+          set -euo pipefail
+          forbidden='pacman\.conf|mkinitcpio|limine|snapper|btrfs|hibernat|plymouth|display-manager|xdg-mime|xdg-user-dirs'
+          if rg -n -i "$forbidden" install/integration --glob '*.sh' --glob '!all.sh'; then
+            echo 'Forbidden system/default operation found in integration scripts' >&2
+            exit 1
+          fi
