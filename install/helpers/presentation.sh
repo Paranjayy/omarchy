@@ -5,7 +5,9 @@ fi
 
 # Get terminal size from /dev/tty (works in all scenarios: direct, sourced, or piped)
 if [[ -e /dev/tty ]]; then
-  TERM_SIZE=$(stty size 2>/dev/null </dev/tty)
+  # stty returns non-zero when /dev/tty exists but the installer has no
+  # controlling terminal (for example when launched by a desktop helper).
+  TERM_SIZE=$(stty size 2>/dev/null </dev/tty || true)
 
   if [[ -n $TERM_SIZE ]]; then
     export TERM_HEIGHT=$(echo "$TERM_SIZE" | cut -d' ' -f1)

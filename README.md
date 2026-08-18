@@ -31,6 +31,31 @@ Boot your existing Arch system and run:
 curl -fsSL https://omarchy.org/install | OMARCHY_REPO=Paranjayy/omarchy OMARCHY_REF=master bash
 ```
 
+### Existing Arch integration mode
+
+For an existing Arch installation, use the checked-in integration mode instead:
+
+```bash
+OMARCHY_INTEGRATION=1 bash ~/.local/share/omarchy/install.sh
+```
+
+This adds Omarchy packages and user-space configuration while preserving the
+current package-manager configuration, bootloader, initramfs hooks, filesystem,
+login manager, desktop defaults, and reboot state. Btrfs/Snapper and Limine
+features are intentionally not enabled on non-Btrfs or non-Limine systems.
+
+On an existing Arch system, the integration path also adds an isolated
+`Omarchy (isolated profile)` session when it is missing. It explicitly selects
+`~/.config/hypr/hyprland.conf`, so a personal `hyprland.lua` remains available
+without shadowing the Omarchy profile. The current login manager and greeter
+are not enabled, replaced, or re-themed.
+
+Validate the profile before selecting it:
+
+```bash
+omarchy hyprland check
+```
+
 ### Environment Variables
 
 | Variable | Description |
