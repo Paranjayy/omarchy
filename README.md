@@ -74,6 +74,7 @@ its screenshots are also hosted.
 - [Omarchy on...](manual/50-omarchy-on.md)
 - [Dual Boot Install](manual/51-dual-boot-install.md)
 - [Unattended Installs](manual/52-unattended-installs.md)
+- [Existing Arch integration](manual/53-existing-arch-integration.md)
 
 ## License
 
