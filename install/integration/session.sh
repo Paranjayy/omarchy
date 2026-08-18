@@ -1,6 +1,12 @@
 # Install the isolated Omarchy session only when it is not already present.
 # This does not enable, replace, or re-theme the login manager.
 
+mkdir -p "$HOME/.config/uwsm"
+if [[ ! -e "$HOME/.config/uwsm/env-Hyprland" ]]; then
+  install -m644 "$OMARCHY_PATH/default/uwsm-env-Hyprland" \
+    "$HOME/.config/uwsm/env-Hyprland"
+fi
+
 session_launcher=/usr/local/bin/omarchy-hyprland-session
 session_entry=/usr/local/share/wayland-sessions/omarchy-profile.desktop
 

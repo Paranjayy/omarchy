@@ -1,0 +1,3 @@
+# Explicitly select Omarchy's regular Hyprland config for UWSM sessions.
+# Personal ~/.config/hypr/hyprland.lua remains available to direct/manual runs.
+export HYPRLAND_CONFIG="$HOME/.config/hypr/hyprland.conf"
