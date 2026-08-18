@@ -2,7 +2,7 @@
 
 # omarchy:summary=Pull the latest Omarchy git changes
 
-set -e
+set -euo pipefail
 
 echo -e "\e[32mUpdate Omarchy\e[0m"
 
@@ -11,7 +11,15 @@ omarchy-update-time
 # Suppress Hyprland config errors while git updates default config files mid-pull
 hyprctl keyword debug:suppress_errors true &>/dev/null || true
 
-git -C $OMARCHY_PATH pull --autostash
+remote="${OMARCHY_UPDATE_REMOTE:-origin}"
+branch=$(git -C "$OMARCHY_PATH" branch --show-current)
+if [[ -z $branch ]]; then
+  echo "Omarchy source is detached; refusing to guess an update branch." >&2
+  exit 2
+fi
+
+git -C "$OMARCHY_PATH" fetch "$remote" "$branch"
+git -C "$OMARCHY_PATH" pull --ff-only --autostash "$remote" "$branch"
 git -C $OMARCHY_PATH --no-pager diff --check || git -C $OMARCHY_PATH reset --merge
 
 hyprctl reload &>/dev/null || true

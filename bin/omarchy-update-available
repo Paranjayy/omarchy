@@ -1,24 +1,30 @@
 #!/bin/bash
 
-# omarchy:summary=Get remote tag
+# omarchy:summary=Check for updates on the active Omarchy source
 
-latest_tag=$(git -C "$OMARCHY_PATH" ls-remote --tags origin | grep -v "{}" | awk '{print $2}' | sed 's#refs/tags/##' | sort -V | tail -n 1)
-if [[ -z $latest_tag ]]; then
-  echo "Error: Could not retrieve latest tag."
+set -euo pipefail
+
+if ! git -C "$OMARCHY_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "Omarchy source is package-managed; use the normal package updater."
   exit 1
 fi
 
-# Get local tag
-current_tag=$(git -C "$OMARCHY_PATH" describe --tags $(git -C "$OMARCHY_PATH" rev-list --tags --max-count=1))
-if [[ -z $current_tag ]]; then
-  echo "Error: Could not retrieve current tag."
-  exit 1
+remote="${OMARCHY_UPDATE_REMOTE:-origin}"
+branch=$(git -C "$OMARCHY_PATH" branch --show-current)
+if [[ -z $branch ]]; then
+  echo "Omarchy source is detached; refusing to guess an update branch." >&2
+  exit 2
 fi
 
-if [[ $current_tag != $latest_tag ]]; then
-  echo "Omarchy update available ($latest_tag)"
+git -C "$OMARCHY_PATH" fetch --quiet "$remote" "$branch"
+local_commit=$(git -C "$OMARCHY_PATH" rev-parse HEAD)
+remote_commit=$(git -C "$OMARCHY_PATH" rev-parse "$remote/$branch")
+
+if [[ $local_commit != "$remote_commit" ]]; then
+  echo "Omarchy update available on $remote/$branch"
+  git -C "$OMARCHY_PATH" --no-pager log --oneline "$local_commit..$remote_commit" | head -20
   exit 0
-else
-  echo "Omarchy is up to date ($current_tag)"
-  exit 1
 fi
+
+echo "Omarchy source is up to date ($branch @ ${local_commit:0:8})"
+exit 1
