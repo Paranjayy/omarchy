@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# omarchy:summary=Install Omarchy as a non-destructive profile on this Arch system
+# omarchy:group=install
+# omarchy:args=[--no-packages]
+# omarchy:examples=omarchy install
+# omarchy:requires-sudo=true
+
+set -euo pipefail
+
+export OMARCHY_PATH="${OMARCHY_PATH:-$HOME/.local/share/omarchy}"
+
+case "${1:-}" in
+  -h|--help)
+    cat <<'USAGE'
+Usage: omarchy install [--no-packages]
+
+Installs Omarchy as a selectable Hyprland profile on an existing Arch system.
+The current greeter, other desktops, filesystem, boot setup, networking, and
+pacman configuration are preserved.
+USAGE
+    exit 0
+    ;;
+  "") exec omarchy-integrate --yes ;;
+  --no-packages) exec omarchy-integrate --yes --no-packages ;;
+  *) echo "Unknown option: $1" >&2; exit 2 ;;
+esac

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # omarchy:summary=Install Omarchy as a non-destructive desktop profile on an existing Arch system
-# omarchy:group=install
+# omarchy:group=integrate
 # omarchy:args=[--yes] [--no-packages]
 # omarchy:examples=omarchy integrate --yes
 # omarchy:requires-sudo=true
