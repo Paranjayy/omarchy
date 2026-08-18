@@ -1,7 +1,10 @@
 -- See https://wiki.hypr.land/Configuring/Basics/Monitors/
 -- List current monitors and supported resolutions with: hyprctl monitors all
 
-local omarchy_gdk_scale = 2
+-- Keep toolkit scaling independent from compositor scaling. The default
+-- 1080p/1440p profile is 1x; users with high-density displays can override
+-- this value in ~/.config/hypr/monitors.lua.
+local omarchy_gdk_scale = 1
 local omarchy_monitor_scale = "auto"
 
 hl.env("GDK_SCALE", tostring(omarchy_gdk_scale))
