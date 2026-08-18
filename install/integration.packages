@@ -1,0 +1,4 @@
+# Deliberately small: integration must not reproduce the ISO package set.
+hyprland
+uwsm
+xdg-desktop-portal-hyprland

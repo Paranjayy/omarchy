@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# Preserve a user's explicit selection. For legacy Omarchy installs, prefer
+# the regular conf file so a personal hyprland.lua cannot be auto-selected.
+if [[ -z ${HYPRLAND_CONFIG:-} && -f $HOME/.config/hypr/hyprland.conf ]]; then
+  export HYPRLAND_CONFIG="$HOME/.config/hypr/hyprland.conf"
+fi
+
+exec uwsm start -g -1 -e -D Hyprland hyprland.desktop
