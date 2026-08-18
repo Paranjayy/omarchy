@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Omarchy (portable profile)
+Comment=Omarchy Hyprland session without changing the system greeter
+Exec=@SESSION_EXEC@
+TryExec=@SESSION_EXEC@
+Type=Application

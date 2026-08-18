@@ -1,0 +1,103 @@
+#!/bin/bash
+
+# omarchy:summary=Install Omarchy as a non-destructive desktop profile on an existing Arch system
+# omarchy:group=install
+# omarchy:args=[--yes] [--no-packages]
+# omarchy:examples=omarchy integrate --yes
+# omarchy:requires-sudo=true
+
+set -euo pipefail
+
+usage() {
+  cat <<'USAGE'
+Usage: omarchy integrate --yes [--no-packages]
+
+Installs the small package set needed for an Omarchy Hyprland profile and
+adds a selectable session without changing the display manager, greeter,
+pacman configuration, bootloader, filesystem, initramfs, network manager, or
+any existing desktop configuration.
+
+Existing files are never overwritten. Files created by this command are
+listed at the end and can be removed manually if desired.
+USAGE
+}
+
+confirmed=0
+install_packages=1
+while (($#)); do
+  case "$1" in
+    --yes) confirmed=1; shift ;;
+    --no-packages) install_packages=0; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
+  esac
+done
+
+if (( ! confirmed )); then
+  echo "Refusing to make changes without --yes. Read: omarchy integrate --help" >&2
+  exit 2
+fi
+if (( EUID == 0 )); then
+  echo "Run this command as the desktop user, not root." >&2
+  exit 1
+fi
+
+export OMARCHY_PATH="${OMARCHY_PATH:-/usr/share/omarchy}"
+export PATH="$OMARCHY_PATH/bin:$PATH"
+
+stamp=$(date +%Y%m%d-%H%M%S)
+state_dir="$HOME/.local/state/omarchy/integration-backups/$stamp"
+created=()
+mkdir -p "$state_dir"
+
+backup_if_present() {
+  local path="$1"
+  if [[ -e $path || -L $path ]]; then
+    mkdir -p "$state_dir$(dirname "$path")"
+    cp -a "$path" "$state_dir$path"
+  fi
+}
+
+write_if_missing() {
+  local source="$1" target="$2"
+  if [[ -e $target || -L $target ]]; then
+    return 0
+  fi
+  mkdir -p "$(dirname "$target")"
+  install -m 0755 "$source" "$target"
+  created+=("$target")
+}
+
+if (( install_packages )); then
+  mapfile -t packages < <(sed '/^[[:space:]]*#/d;/^[[:space:]]*$/d' "$OMARCHY_PATH/install/integration.packages")
+  if ((${#packages[@]})); then
+    sudo pacman -S --needed --noconfirm "${packages[@]}"
+  fi
+fi
+
+session_dir=/usr/local/share/wayland-sessions
+session_file="$session_dir/omarchy-portable.desktop"
+wrapper=/usr/local/bin/omarchy-portable-session
+backup_if_present "$session_file"
+backup_if_present "$wrapper"
+
+sudo mkdir -p "$session_dir" /usr/local/bin
+if [[ ! -e $wrapper ]]; then
+  sudo install -m 0755 "$OMARCHY_PATH/default/omarchy-portable-session" "$wrapper"
+  created+=("$wrapper")
+fi
+if [[ ! -e $session_file ]]; then
+  sed "s|@SESSION_EXEC@|$wrapper|" "$OMARCHY_PATH/default/wayland-sessions/omarchy-portable.desktop" \
+    | sudo tee "$session_file" >/dev/null
+  sudo chmod 0644 "$session_file"
+  created+=("$session_file")
+fi
+
+echo "Omarchy integration is ready; the existing greeter and desktops were left unchanged."
+echo "Backup: $state_dir"
+if ((${#created[@]})); then
+  printf 'Created:\n'
+  printf '  %s\n' "${created[@]}"
+else
+  echo "No files needed creating."
+fi

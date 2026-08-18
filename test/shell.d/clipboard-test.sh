@@ -179,6 +179,32 @@ assertEqual(
   2,
   'clipboard respawns both watchers when they die'
 )
+
+assertDeepEqual(
+  clipboard.displayRows([{ type: 'text', text: 'a'.repeat(8192) + 'needle' }], 'needle', 50),
+  [],
+  'clipboard display rows do not search text past the cap'
+)
+
+assertDeepEqual(
+  clipboard.displayRows([{ type: 'text', text: 'needle' + 'a'.repeat(100000) }], 'needle', 50).map(row => row.index),
+  [0],
+  'clipboard display rows search text up to the cap'
+)
+
+const hugeTextRow = clipboard.displayRows([{ type: 'text', text: 'z'.repeat(100000) }], '', 50)[0]
+assert(
+  hugeTextRow.fullText.length === 8192 && hugeTextRow.previewText.length === 8192,
+  'clipboard display rows cap what a huge text entry renders'
+)
+
+const hugeFileList = []
+for (let i = 0; i < 5000; i++) hugeFileList.push('file:///home/dhh/clip-' + i + '.mp4')
+const hugeFileRow = clipboard.displayRows([{ type: 'text', text: hugeFileList.join('\n') + '\n' }], '', 50)[0]
+assert(
+  hugeFileRow.entryType === 'file' && hugeFileRow.fullText.split('\n').every(path => path.endsWith('.mp4')),
+  'clipboard display rows cap a huge file list without truncating a path'
+)
 JS
 
 TMPDIR=$(mktemp -d)
@@ -266,6 +292,47 @@ capture_output=$(printf 'closing app copy' | WL_PASTE_TEXT="stale read" XDG_RUNT
 [[ $capture_output == '{"type":"text","text":"closing app copy"}' ]] || fail "clipboard capture records watched text from stdin"
 pass "clipboard capture records watched text from stdin"
 
+capture_output=$(printf '%s' 'UTF-16 clipboard - fixed' | iconv -f UTF-8 -t UTF-16LE | XDG_RUNTIME_DIR="$TMPDIR" XDG_STATE_HOME="$TMPDIR/state" PATH="$TMPDIR/bin:$PATH" "$ROOT/shell/plugins/clipboard/capture.sh" text)
+[[ $capture_output == '{"type":"text","text":"UTF-16 clipboard - fixed"}' ]] || fail "clipboard capture decodes UTF-16LE text"
+pass "clipboard capture decodes UTF-16LE text"
+
+# BOM-less UTF-16LE "A" is byte-identical to UTF-8 "A\0". The strict
+# whole-payload pattern intentionally resolves that ambiguity as UTF-16.
+capture_output=$(printf 'A' | iconv -f UTF-8 -t UTF-16LE | XDG_RUNTIME_DIR="$TMPDIR" XDG_STATE_HOME="$TMPDIR/state" PATH="$TMPDIR/bin:$PATH" "$ROOT/shell/plugins/clipboard/capture.sh" text)
+[[ $capture_output == '{"type":"text","text":"A"}' ]] || fail "clipboard capture decodes exact NUL-padded UTF-16LE text"
+pass "clipboard capture decodes exact NUL-padded UTF-16LE text"
+
+capture_output=$(printf 'BE text' | iconv -f UTF-8 -t UTF-16BE | XDG_RUNTIME_DIR="$TMPDIR" XDG_STATE_HOME="$TMPDIR/state" PATH="$TMPDIR/bin:$PATH" "$ROOT/shell/plugins/clipboard/capture.sh" text)
+[[ $capture_output == '{"type":"text","text":"BE text"}' ]] || fail "clipboard capture decodes exact NUL-padded UTF-16BE text"
+pass "clipboard capture decodes exact NUL-padded UTF-16BE text"
+
+capture_output=$({ printf '\377\376'; printf '%s' 'Little endian 日本 😀' | iconv -f UTF-8 -t UTF-16LE; } | XDG_RUNTIME_DIR="$TMPDIR" XDG_STATE_HOME="$TMPDIR/state" PATH="$TMPDIR/bin:$PATH" "$ROOT/shell/plugins/clipboard/capture.sh" text)
+[[ $capture_output == '{"type":"text","text":"Little endian 日本 😀"}' ]] || fail "clipboard capture decodes BOM-tagged UTF-16LE text"
+pass "clipboard capture decodes BOM-tagged UTF-16LE text"
+
+capture_output=$({ printf '\376\377'; printf '%s' 'Big endian 日本 😀' | iconv -f UTF-8 -t UTF-16BE; } | XDG_RUNTIME_DIR="$TMPDIR" XDG_STATE_HOME="$TMPDIR/state" PATH="$TMPDIR/bin:$PATH" "$ROOT/shell/plugins/clipboard/capture.sh" text)
+[[ $capture_output == '{"type":"text","text":"Big endian 日本 😀"}' ]] || fail "clipboard capture decodes BOM-tagged UTF-16BE text"
+pass "clipboard capture decodes BOM-tagged UTF-16BE text"
+
+assert_ambiguous_utf16_falls_back() {
+  local description="$1" value="$2" expected capture_output
+  printf '%s' "$value" | iconv -f UTF-8 -t UTF-16LE >"$TMPDIR/ambiguous-utf16"
+  expected=$(jq -cRs '{type:"text", text:.}' <"$TMPDIR/ambiguous-utf16")
+  capture_output=$(XDG_RUNTIME_DIR="$TMPDIR" XDG_STATE_HOME="$TMPDIR/state" PATH="$TMPDIR/bin:$PATH" "$ROOT/shell/plugins/clipboard/capture.sh" text <"$TMPDIR/ambiguous-utf16")
+  [[ $capture_output == "$expected" ]] || fail "$description" "expected: $expected\nactual: $capture_output"
+  pass "$description"
+}
+
+assert_ambiguous_utf16_falls_back "clipboard capture leaves BOM-less UTF-16 punctuation undecoded" '—'
+assert_ambiguous_utf16_falls_back "clipboard capture leaves BOM-less UTF-16 CJK undecoded" '日本'
+assert_ambiguous_utf16_falls_back "clipboard capture leaves BOM-less UTF-16 surrogate pairs undecoded" '😀'
+
+printf '\377\376\075\330' >"$TMPDIR/malformed-utf16"
+expected=$(jq -cRs '{type:"text", text:.}' <"$TMPDIR/malformed-utf16")
+capture_output=$(XDG_RUNTIME_DIR="$TMPDIR" XDG_STATE_HOME="$TMPDIR/state" PATH="$TMPDIR/bin:$PATH" "$ROOT/shell/plugins/clipboard/capture.sh" text <"$TMPDIR/malformed-utf16")
+[[ $capture_output == "$expected" ]] || fail "clipboard capture falls back from malformed UTF-16" "expected: $expected\nactual: $capture_output"
+pass "clipboard capture falls back from malformed UTF-16"
+
 capture_output=$(printf 'png-data' | XDG_RUNTIME_DIR="$TMPDIR" XDG_STATE_HOME="$TMPDIR/state" PATH="$TMPDIR/bin:$PATH" "$ROOT/shell/plugins/clipboard/capture.sh" image/png)
 image_path=$(jq -r '.path' <<<"$capture_output")
 jq -e '.type == "image" and .mime == "image/png" and (.capturedAt | type == "string")' <<<"$capture_output" >/dev/null || fail "clipboard capture records watched png images"
@@ -318,7 +385,7 @@ PATH="$TMPDIR/bin:$PATH" wl-paste --type text --watch "$current_script" text &
 stale_pid=$!
 PIDS_TO_KILL+=("$stale_pid")
 sleep 0.2
-pgrep -f 'wl-paste .*--watch .*/shell/plugins/clipboard/capture\.sh' | grep -qx "$stale_pid" || fail "clipboard reaper pattern matches running watchers"
+pgrep -f 'wl-paste .*--watch .*/shell/plugins/clipboard/capture\.sh' | grep -x "$stale_pid" >/dev/null || fail "clipboard reaper pattern matches running watchers"
 kill "$stale_pid" 2>/dev/null || true
 wait "$stale_pid" 2>/dev/null || true
 pass "clipboard reaper pattern matches running watchers"

@@ -10,4 +10,16 @@ google-chrome* | brave* | microsoft-edge* | opera* | vivaldi* | helium*) ;;
 *) browser="chromium.desktop" ;;
 esac
 
-exec setsid uwsm-app -- $(sed -n 's/^Exec=\([^ ]*\).*/\1/p' {~/.local,~/.nix-profile,/usr}/share/applications/$browser 2>/dev/null | head -1) --app="$1" "${@:2}"
+browser_command=$(sed -n 's/^Exec=\([^ ]*\).*/\1/p' {~/.local,~/.nix-profile,/usr}/share/applications/$browser 2>/dev/null | head -1)
+
+if [[ -z $browser_command ]]; then
+  exec xdg-open "$1"
+fi
+
+# UWSM is useful for Hyprland, but is not a desktop-wide requirement. Keep
+# web apps usable from Plasma, GNOME, and other sessions as well.
+if [[ ${XDG_CURRENT_DESKTOP:-} == *Hyprland* ]] && command -v uwsm-app >/dev/null 2>&1; then
+  exec setsid uwsm-app -- "$browser_command" --app="$1" "${@:2}"
+else
+  exec setsid "$browser_command" --app="$1" "${@:2}"
+fi
