@@ -14,7 +14,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t scripts < <(find bin install default -type f \( -name '*.sh' -o -name 'omarchy-*' \) -print)
+          mapfile -t scripts < <(find bin install default -type f -perm /111 -print)
           for script in "${scripts[@]}"; do
             bash -n "$script"
           done
