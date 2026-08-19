@@ -1,0 +1,81 @@
+#!/bin/bash
+
+# omarchy:summary=Clone Paranjayy/omarchy and install it
+# omarchy:group=install
+# omarchy:args=[--branch BRANCH] [--unguarded]
+# omarchy:examples=omarchy clone-install
+
+set -euo pipefail
+
+REPO="https://github.com/Paranjayy/omarchy.git"
+BRANCH="agent/fix-uwsm-config-selection"
+TARGET="$HOME/.local/share/omarchy"
+UNGUARDED=0
+
+usage() {
+  cat <<'USAGE'
+Usage: omarchy clone-install [OPTIONS]
+
+Clones Paranjayy/omarchy and installs it on your system.
+This is the fastest way to get started on an existing Arch system.
+
+Options:
+  --branch BRANCH    Branch to clone (default: agent/fix-uwsm-config-selection)
+  --target DIR       Install location (default: ~/.local/share/omarchy)
+  --unguarded        Skip all safety checks
+
+Examples:
+  omarchy clone-install
+  omarchy clone-install --branch quattro
+  omarchy clone-install --unguarded
+USAGE
+  exit 0
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help) usage ;;
+    --branch) shift; BRANCH="${1:-$BRANCH}" ;;
+    --target) shift; TARGET="${1:-$TARGET}" ;;
+    --unguarded) UNGUARDED=1 ;;
+    *) echo "Unknown option: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+echo -e "\e[32mOmarchy Clone Install\e[0m"
+echo "  Repo:   $REPO"
+echo "  Branch: $BRANCH"
+echo "  Target: $TARGET"
+echo
+
+# Clone or update
+if [[ -d "$TARGET/.git" ]]; then
+  echo -e "\e[33mOmarchy already installed at $TARGET\e[0m"
+  echo "  Pulling latest changes..."
+  cd "$TARGET"
+  git fetch origin "$BRANCH"
+  git pull origin "$BRANCH"
+else
+  echo "  Cloning..."
+  git clone --branch "$BRANCH" "$REPO" "$TARGET"
+  cd "$TARGET"
+fi
+
+echo
+echo "  Installing..."
+
+# Run install
+export OMARCHY_PATH="$TARGET"
+export PATH="$TARGET/bin:$PATH"
+
+if [[ $UNGUARDED -eq 1 ]]; then
+  export OMARCHY_UNGUARDED=1
+fi
+
+bash "$TARGET/install.sh"
+
+echo
+echo -e "\e[32mDone!\e[0m"
+echo "  Log out and select the Omarchy session from your greeter."
+echo "  Run 'omarchy --help' to see available commands."
