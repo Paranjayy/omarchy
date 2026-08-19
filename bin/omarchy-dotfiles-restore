@@ -1,0 +1,111 @@
+#!/bin/bash
+
+# omarchy:summary=Restore desktop environment and window manager dotfiles from backup
+# omarchy:group=dotfiles
+# omarchy:args=[BACKUP_DIR]
+# omarchy:examples=omarchy dotfiles-restore /home/paranjay/Backups/dotfiles/20260819-042855
+
+set -euo pipefail
+
+usage() {
+  cat <<'USAGE'
+Usage: omarchy dotfiles-restore BACKUP_DIR
+
+Restores desktop environment and window manager configurations from a
+previous backup. Only restores configs that exist in the backup.
+
+Example:
+  omarchy dotfiles-restore ~/Backups/dotfiles/20260819-042855
+  omarchy dotfiles-restore ~/Backups/dotfiles/dotfiles-20260819-042855.tar.zst
+USAGE
+  exit 0
+}
+
+[[ "${1:-}" == "-h" || "${1:-}" == "--help" ]] && usage
+[[ $# -lt 1 ]] && { echo "Error: backup path required" >&2; exit 1; }
+
+BACKUP_PATH="$1"
+RESTORE_DIR=""
+
+# If it's a tar.zst archive, extract first
+if [[ -f "$BACKUP_PATH" && "$BACKUP_PATH" == *.tar.zst ]]; then
+  TEMP_DIR=$(mktemp -d)
+  echo -e "\e[32mExtracting archive...\e[0m"
+  zstd -d "$BACKUP_PATH" -o "$TEMP_DIR/dotfiles.tar" 2>/dev/null
+  tar -xf "$TEMP_DIR/dotfiles.tar" -C "$TEMP_DIR"
+  # Find the timestamped directory inside
+  RESTORE_DIR=$(find "$TEMP_DIR" -maxdepth 1 -type d -name "20*" | head -1)
+  if [[ -z "$RESTORE_DIR" ]]; then
+    echo "Error: no backup directory found in archive" >&2
+    rm -rf "$TEMP_DIR"
+    exit 1
+  fi
+elif [[ -d "$BACKUP_PATH" ]]; then
+  RESTORE_DIR="$BACKUP_PATH"
+else
+  echo "Error: $BACKUP_PATH is not a valid backup directory or archive" >&2
+  exit 1
+fi
+
+echo -e "\e[32mRestoring dotfiles from $RESTORE_DIR\e[0m"
+echo
+
+# Restore function: only copy if source exists
+restore_dir() {
+  local src="$RESTORE_DIR/$1"
+  local dst="$HOME/.config/$2"
+  if [[ -d "$src" ]]; then
+    echo "  Restoring $1..."
+    mkdir -p "$dst"
+    cp -r "$src"/* "$dst/" 2>/dev/null || true
+  fi
+}
+
+restore_file() {
+  local src="$RESTORE_DIR/$1"
+  local dst="$HOME/$1"
+  if [[ -f "$src" ]]; then
+    echo "  Restoring $1..."
+    cp "$src" "$dst"
+  fi
+}
+
+# Hyprland
+restore_dir "hypr" "hypr"
+
+# Plasma/KDE
+restore_dir "plasma-kde" ""
+
+# Niri
+restore_dir "niri" "niri"
+
+# Omarchy
+restore_dir "omarchy" "omarchy"
+
+# GTK
+restore_dir "gtk-3.0" "gtk-3.0"
+restore_dir "gtk-4.0" "gtk-4.0"
+
+# Terminals
+restore_dir "alacritty" "alacritty"
+restore_dir "foot" "foot"
+restore_dir "kitty" "kitty"
+restore_dir "ghostty" "ghostty"
+
+# Waybar, Walker, Mako, UWSM, SwayOSD
+restore_dir "waybar" "waybar"
+restore_dir "walker" "walker"
+restore_dir "mako" "mako"
+restore_dir "uwsm" "uwsm"
+restore_dir "swayosd" "swayosd"
+
+# Shell configs
+for f in .bashrc .bash_profile .zshrc .zshenv .profile .tmux.conf .gitconfig; do
+  restore_file "$f"
+done
+
+echo
+echo -e "\e[32mDone! Restart your session for changes to take effect.\e[0m"
+
+# Clean up temp if we extracted an archive
+[[ -n "${TEMP_DIR:-}" ]] && rm -rf "$TEMP_DIR"

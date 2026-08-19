@@ -2,7 +2,7 @@
 
 # omarchy:summary=Install Omarchy as a non-destructive profile on this Arch system
 # omarchy:group=install
-# omarchy:args=[--integration]
+# omarchy:args=[--integration] [--allow-any-de] [--allow-any-fs]
 # omarchy:examples=omarchy install
 # omarchy:requires-sudo=true
 
@@ -10,27 +10,36 @@ set -euo pipefail
 
 export OMARCHY_PATH="${OMARCHY_PATH:-$HOME/.local/share/omarchy}"
 
-case "${1:-}" in
-  -h|--help)
-    cat <<'USAGE'
-Usage: omarchy install
+INTEGRATION=0
+ALLOW_ANY_DE=0
+ALLOW_ANY_FS=0
+
+for arg in "$@"; do
+  case "$arg" in
+    -h|--help)
+      cat <<'USAGE'
+Usage: omarchy install [OPTIONS]
 
 Installs Omarchy in existing-Arch integration mode. It preserves the current
-greeter, desktop environments, filesystem, boot setup, NetworkManager, and
-pacman configuration. The full ISO installer remains explicit and is never
-selected by this command.
-USAGE
-    exit 0
-    ;;
-  "") ;;
-  --integration) shift ;;
-  *) echo "Unknown option: $1" >&2; exit 2 ;;
-esac
+greeter, filesystem, boot setup, NetworkManager, and pacman configuration.
 
-if (($#)); then
-  echo "Unexpected arguments: $*" >&2
-  exit 2
-fi
+Options:
+  --integration       Run in integration mode (default, same as bare install)
+  --allow-any-de      Allow install even if GNOME/KDE/other DE is present
+  --allow-any-fs      Allow install on any filesystem (ext4, xfs, etc.)
+  --unguarded         Skip all safety checks (use at your own risk)
+USAGE
+      exit 0
+      ;;
+    --integration) INTEGRATION=1 ;;
+    --allow-any-de) ALLOW_ANY_DE=1 ;;
+    --allow-any-fs) ALLOW_ANY_FS=1 ;;
+    --unguarded) export OMARCHY_UNGUARDED=1 ;;
+    *) echo "Unknown option: $arg" >&2; exit 2 ;;
+  esac
+done
 
 export OMARCHY_INTEGRATION=1
+[[ $ALLOW_ANY_DE -eq 1 ]] && export OMARCHY_REQUIRE_FRESH=0
+[[ $ALLOW_ANY_FS -eq 1 ]] && export OMARCHY_REQUIRE_BTRFS=0
 exec bash "$OMARCHY_PATH/install.sh"

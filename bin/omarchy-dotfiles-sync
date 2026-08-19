@@ -1,0 +1,118 @@
+#!/bin/bash
+
+# omarchy:summary=Sync dotfiles backup to a git repository
+# omarchy:group=dotfiles
+# omarchy:args=[--repo DIR] [--commit MESSAGE]
+# omarchy:examples=omarchy dotfiles-sync
+
+set -euo pipefail
+
+DOTFILES_REPO="${DOTFILES_REPO:-$HOME/dotfiles}"
+COMMIT_MSG=""
+
+usage() {
+  cat <<'USAGE'
+Usage: omarchy dotfiles-sync [OPTIONS]
+
+Backs up current dotfiles and pushes them to a git repository.
+
+Options:
+  --repo DIR         Path to dotfiles repo (default: ~/dotfiles)
+  --commit MESSAGE   Custom commit message
+  --init             Initialize a new dotfiles repo if it doesn't exist
+
+The repo structure will be:
+  hypr/           Hyprland configs
+  plasma-kde/     Plasma/KDE configs
+  niri/           Niri configs
+  omarchy/        Omarchy configs
+  gtk-3.0/        GTK3 settings
+  gtk-4.0/        GTK4 settings
+  alacritty/      Alacritty config
+  foot/           Foot config
+  kitty/          Kitty config
+  ghostty/        Ghostty config
+  waybar/         Waybar config
+  walker/         Walker config
+  mako/           Mako config
+  uwsm/           UWSM config
+  shell/          Shell configs (.bashrc, .zshrc, etc.)
+USAGE
+  exit 0
+}
+
+INIT_REPO=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help) usage ;;
+    --repo) shift; DOTFILES_REPO="${1:-$DOTFILES_REPO}" ;;
+    --commit) shift; COMMIT_MSG="${1:-}" ;;
+    --init) INIT_REPO=1 ;;
+    *) echo "Unknown option: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+# Initialize repo if requested and needed
+if [[ $INIT_REPO -eq 1 && ! -d "$DOTFILES_REPO/.git" ]]; then
+  echo -e "\e[32mInitializing dotfiles repo at $DOTFILES_REPO\e[0m"
+  mkdir -p "$DOTFILES_REPO"
+  git -C "$DOTFILES_REPO" init
+  echo "# Dotfiles backup" > "$DOTFILES_REPO/README.md"
+  git -C "$DOTFILES_REPO" add . && git -C "$DOTFILES_REPO" commit -m "init dotfiles repo"
+fi
+
+if [[ ! -d "$DOTFILES_REPO/.git" ]]; then
+  echo "Error: $DOTFILES_REPO is not a git repo. Use --init to create one." >&2
+  exit 1
+fi
+
+echo -e "\e[32mSyncing dotfiles to $DOTFILES_REPO\e[0m"
+
+# Run backup to a temp location, then copy to repo
+TEMP_BACKUP=$(mktemp -d)
+export OUTPUT_DIR="$TEMP_BACKUP"
+bash "$HOME/.local/share/omarchy/bin/omarchy-dotfiles-backup" 2>/dev/null
+
+# Find the timestamped dir
+BACKUP_DIR=$(find "$TEMP_BACKUP" -maxdepth 1 -type d -name "20*" | head -1)
+if [[ -z "$BACKUP_DIR" ]]; then
+  echo "Error: backup failed" >&2
+  rm -rf "$TEMP_BACKUP"
+  exit 1
+fi
+
+# Copy to repo (excluding the archive)
+for item in "$BACKUP_DIR"/*; do
+  name=$(basename "$item")
+  # Skip compressed archives
+  [[ "$name" == *.tar.zst ]] && continue
+  # Shell configs go in shell/
+  if [[ -f "$item" ]]; then
+    mkdir -p "$DOTFILES_REPO/shell"
+    cp "$item" "$DOTFILES_REPO/shell/"
+  else
+    cp -r "$item" "$DOTFILES_REPO/"
+  fi
+done
+
+# Stage and commit
+cd "$DOTFILES_REPO"
+git add -A
+
+if git diff --cached --quiet; then
+  echo "No changes to commit."
+else
+  MSG="${COMMIT_MSG:-backup: $(date +%Y-%m-%d\ %H:%M)}"
+  git commit -m "$MSG"
+  echo -e "\e[32mCommitted: $MSG\e[0m"
+fi
+
+# Push if remote exists
+if git remote | grep -q origin; then
+  git push origin HEAD 2>/dev/null && echo -e "\e[32mPushed to origin\e[0m" || echo "Push failed (no remote or auth issue)"
+fi
+
+rm -rf "$TEMP_BACKUP"
+echo -e "\e[32mDone!\e[0m"
