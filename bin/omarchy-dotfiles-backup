@@ -1,0 +1,148 @@
+#!/bin/bash
+
+# omarchy:summary=Backup desktop environment and window manager dotfiles
+# omarchy:group=dotfiles
+# omarchy:args=[--output DIR]
+# omarchy:examples=omarchy dotfiles-backup
+
+set -euo pipefail
+
+OUTPUT_DIR="${OUTPUT_DIR:-$HOME/Backups/dotfiles}"
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+BACKUP_DIR="$OUTPUT_DIR/$TIMESTAMP"
+
+usage() {
+  cat <<'USAGE'
+Usage: omarchy dotfiles-backup [--output DIR]
+
+Backs up all desktop environment and window manager configurations:
+  - Hyprland (hyprland.conf, hypridle, hyprlock, etc.)
+  - Plasma/KDE (plasmashellrc, kdeglobals, etc.)
+  - Niri (config.kdl)
+  - Omarchy (branding, themes, extensions)
+  - GTK (gtk-3.0, gtk-4.0 settings)
+  - Terminals (alacritty, foot, kitty, ghostty)
+  - Waybar, Walker, Mako, and other tools
+
+Output is a timestamped directory with individual config folders
+and a compressed archive.
+USAGE
+  exit 0
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help) usage ;;
+    --output) shift; OUTPUT_DIR="${1:-$OUTPUT_DIR}"; BACKUP_DIR="$OUTPUT_DIR/$(date +%Y%m%d-%H%M%S)" ;;
+    *) echo "Unknown option: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+mkdir -p "$BACKUP_DIR"
+
+echo -e "\e[32mBacking up dotfiles to $BACKUP_DIR\e[0m"
+
+# --- Hyprland ---
+if [[ -d "$HOME/.config/hypr" ]]; then
+  echo "  Hyprland..."
+  cp -r "$HOME/.config/hypr" "$BACKUP_DIR/hypr"
+fi
+
+# --- Plasma/KDE ---
+KDE_FILES=(
+  plasmashellrc kdeglobals plasma-localerc plasmanotifyrc
+  plasma-org.kde.plasma.desktop-appletsrc plasma-welcomerc
+  kded5rc startkderc kmixrc kwinrc kwinrulesrc
+  kscreenorg qsplashrc
+)
+KDE_DIR="$BACKUP_DIR/plasma-kde"
+mkdir -p "$KDE_DIR"
+for f in "${KDE_FILES[@]}"; do
+  [[ -f "$HOME/.config/$f" ]] && cp "$HOME/.config/$f" "$KDE_DIR/"
+done
+# KDE directories
+for d in KDE kalarmrc knsrc; do
+  [[ -d "$HOME/.config/$d" ]] && cp -r "$HOME/.config/$d" "$KDE_DIR/"
+done
+
+# --- Niri ---
+if [[ -d "$HOME/.config/niri" ]]; then
+  echo "  Niri..."
+  cp -r "$HOME/.config/niri" "$BACKUP_DIR/niri"
+fi
+
+# --- Omarchy ---
+if [[ -d "$HOME/.config/omarchy" ]]; then
+  echo "  Omarchy..."
+  cp -r "$HOME/.config/omarchy" "$BACKUP_DIR/omarchy"
+fi
+
+# --- GTK ---
+for v in gtk-3.0 gtk-4.0; do
+  if [[ -d "$HOME/.config/$v" ]]; then
+    echo "  $v..."
+    cp -r "$HOME/.config/$v" "$BACKUP_DIR/$v"
+  fi
+done
+
+# --- Terminals ---
+for term in alacritty foot kitty ghostty; do
+  if [[ -d "$HOME/.config/$term" ]]; then
+    echo "  $term..."
+    cp -r "$HOME/.config/$term" "$BACKUP_DIR/$term"
+  fi
+done
+
+# --- Waybar ---
+if [[ -d "$HOME/.config/waybar" ]]; then
+  echo "  Waybar..."
+  cp -r "$HOME/.config/waybar" "$BACKUP_DIR/waybar"
+fi
+
+# --- Walker ---
+if [[ -d "$HOME/.config/walker" ]]; then
+  echo "  Walker..."
+  cp -r "$HOME/.config/walker" "$BACKUP_DIR/walker"
+fi
+
+# --- Mako ---
+if [[ -d "$HOME/.config/mako" ]]; then
+  echo "  Mako..."
+  cp -r "$HOME/.config/mako" "$BACKUP_DIR/mako"
+fi
+
+# --- UWSM ---
+if [[ -d "$HOME/.config/uwsm" ]]; then
+  echo "  UWSM..."
+  cp -r "$HOME/.config/uwsm" "$BACKUP_DIR/uwsm"
+fi
+
+# --- SwayOSD ---
+if [[ -d "$HOME/.config/swayosd" ]]; then
+  echo "  SwayOSD..."
+  cp -r "$HOME/.config/swayosd" "$BACKUP_DIR/swayosd"
+fi
+
+# --- Hyprsunset ---
+if [[ -f "$HOME/.config/hypr/hyprsunset.conf" ]]; then
+  : # already captured in hypr/
+fi
+
+# --- Shell configs ---
+for f in .bashrc .bash_profile .zshrc .zshenv .profile .tmux.conf .gitconfig; do
+  [[ -f "$HOME/$f" ]] && cp "$HOME/$f" "$BACKUP_DIR/"
+done
+
+# --- Create compressed archive ---
+echo
+echo -e "\e[32mCreating archive...\e[0m"
+ARCHIVE="$OUTPUT_DIR/dotfiles-$TIMESTAMP.tar.zst"
+tar -cf - -C "$OUTPUT_DIR" "$TIMESTAMP" | zstd -o "$ARCHIVE" 2>/dev/null
+
+echo -e "\e[32mDone!\e[0m"
+echo "  Directory: $BACKUP_DIR"
+echo "  Archive:   $ARCHIVE"
+echo
+echo "Contents:"
+ls -1 "$BACKUP_DIR/" | sed 's/^/  /'
